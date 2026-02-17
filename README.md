@@ -268,4 +268,4 @@ except ValueError as e:
 
 ## License
 
-[Specify your license here.]
+Creative Commons Zero v1.0 Universal
