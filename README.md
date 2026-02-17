@@ -1,6 +1,6 @@
 # LLM Model Queries
 
-A collection of Python wrapper functions for querying large language models from multiple providers through a unified, consistent interface. Each function handles client initialization, parameter validation, token usage tracking, and cost estimation, so that switching between providers requires minimal code changes. This is intended to be an accessible starting point for users who are unfamiliar with interaction with LLMs via Python API, and as something that can be built upon for more advanced use cases. 
+A collection of Python wrapper functions for querying large language models from multiple providers through a unified, consistent interface. Each function handles client initialization, parameter validation, token usage tracking, and cost estimation, so that switching between providers requires minimal code changes. This is intended to be an accessible starting point for users who are new to interacting with LLMs via Python API, and as something that can be built upon for more advanced use cases. 
 
 ## Supported Providers and Models
 
