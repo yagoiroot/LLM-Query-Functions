@@ -1,6 +1,6 @@
 # LLM Model Queries
 
-A collection of Python wrapper functions for querying large language models from multiple providers through a unified, consistent interface. Each function handles client initialization, parameter validation, token usage tracking, and cost estimation, so that switching between providers requires minimal code changes.
+A collection of Python wrapper functions for querying large language models from multiple providers through a unified, consistent interface. Each function handles client initialization, parameter validation, token usage tracking, and cost estimation, so that switching between providers requires minimal code changes. This is intended to be an accessible starting point for users who are unfamiliar with interaction with LLMs via Python API, and as something that can be built upon for more advanced use cases. 
 
 ## Supported Providers and Models
 
@@ -16,7 +16,7 @@ A collection of Python wrapper functions for querying large language models from
 
 ### What is an API Key?
 
-An API key is a unique string of characters that authenticates your requests to a provider's servers. It is essentially a password that identifies you as an authorized user. Each provider issues its own key, and you will need a separate key for each provider you want to use. API keys are associated with a billing account: each query you make will incur a small cost based on the number of tokens processed.
+An API key is a unique string of characters that authenticates your requests to a provider's servers. It is essentially a password that identifies you as an authorized user. Each provider issues its own key, and you will need a separate key for each provider you want to use. API keys are associated with a billing account: each query you make will incur a small cost based on the number of tokens processed (be careful, some models can be expensive).
 
 ### Obtaining API Keys
 
@@ -35,10 +35,10 @@ You do not need keys for all providers. Only obtain keys for the providers you i
 ### 1. Install Python Dependencies
 
 ```bash
-pip install openai perplexity python-dotenv numpy xai-sdk
+pip install openai perplexity dotenv numpy xai_sdk
 ```
 
-Note: `xai-sdk` is only required if you plan to use the Grok wrapper. The DeepSeek and Kimi wrappers use the `openai` package with a custom base URL, so no additional SDK is needed for those providers.
+Note: `xai_sdk` is only required if you plan to use the Grok wrapper. The DeepSeek and Kimi wrappers use the `openai` package with a custom base URL, so no additional SDK is needed for those providers.
 
 ### 2. Set Up Your API Keys
 
