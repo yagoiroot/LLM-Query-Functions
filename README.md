@@ -354,3 +354,11 @@ Finally, the function returns a dictionary containing the response text, all tok
 ## License
 
 Creative Commons Zero v1.0 Universal
+
+## Contact
+
+Owen Root  
+_Physics PhD Candidate, Quantum Information & Bio-Photonics_  
+Email: owenbroughallroot@gmail.com
+GitHub: [github.com/yagoiroot](https://github.com/yoagoiroot)
+
