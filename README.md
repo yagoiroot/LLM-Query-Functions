@@ -266,6 +266,91 @@ except ValueError as e:
     print(e)  # "Invalid model 'nonexistent-model'. Must be one of [...]"
 ```
 
+## Internal Structure of the Query Functions
+
+All five wrapper functions follow the same sequential architecture. Understanding this shared structure makes the codebase easier to read, modify, and extend to new providers.
+
+### 1. Model Configuration Dictionary
+
+Each function defines a `MODEL_CONFIG` dictionary at the top of its body. This dictionary maps model name strings to a nested dictionary of metadata: per-token pricing (input, cached input, and output), context window length, and flags indicating which parameters the model supports (e.g., whether `temperature` is allowed, whether the model is a reasoning variant). All validation and cost computation later in the function references this dictionary.
+
+```python
+MODEL_CONFIG = {
+    'gpt-5.2': {
+        'reasoning_options': ['low', 'medium', 'high', 'xhigh'],
+        'supports_temperature': False,
+        'cost_in': 1.75 / 1e6,
+        'cost_cached': 0.175 / 1e6,
+        'cost_out': 14 / 1e6,
+    },
+    # ...
+}
+```
+
+Pricing is stored in cost-per-token (i.e., the per-million-token rate divided by 1e6), so that the cost calculation later reduces to a simple product of token counts and per-token rates.
+
+### 2. Input Validation
+
+Before any network call is made, the function validates all user-supplied parameters against `MODEL_CONFIG`. This includes checking that the model name is a valid key, that the reasoning effort level (if applicable) is among the options the model supports, and that parameters like `temperature` or `frequency_penalty` are not being passed to models that ignore or reject them. Invalid inputs raise a `ValueError` with a descriptive message. This fail-fast approach ensures that errors are caught locally rather than surfacing as opaque API errors from the provider.
+
+### 3. Client Initialization
+
+Each function constructs an API client using the appropriate SDK. The API key is read from the environment via `os.environ["PROVIDER_API_KEY"]`, which was populated by the `load_dotenv()` call at module import time. Several providers (DeepSeek, Kimi) use OpenAI-compatible APIs, so their wrappers instantiate the `OpenAI` client with a custom `base_url` pointing to that provider's endpoint. Grok uses its own `xai_sdk.Client`.
+
+```python
+# DeepSeek example: OpenAI client with a custom base URL
+client = OpenAI(
+    api_key=os.environ["DEEPSEEK_API_KEY"],
+    base_url="https://api.deepseek.com",
+)
+```
+
+### 4. Request Construction
+
+Each function builds a keyword-arguments dictionary (`kwargs`) that will be unpacked into the API call. Required parameters (model name, prompt/messages, stream flag) are set unconditionally. Optional parameters (system prompt, temperature, tools, max tokens, etc.) are added to the dictionary only if the caller provided a non-`None` value. This conditional insertion pattern keeps the API request minimal by default and avoids sending parameters the user did not explicitly set.
+
+For providers using the chat completions interface (DeepSeek, Perplexity, Kimi), the prompt and optional system prompt are assembled into a `messages` list in the standard `[{"role": "system", ...}, {"role": "user", ...}]` format. OpenAI's Responses API uses a flat `input` field instead.
+
+### 5. API Call
+
+The constructed `kwargs` dictionary is passed to the provider's SDK method:
+
+```python
+response = client.responses.create(**kwargs)       # OpenAI Responses API
+response = client.chat.completions.create(**kwargs) # DeepSeek, Perplexity, Kimi
+response = chat.sample()                            # Grok (xai_sdk)
+```
+
+### 6. Response Handling (Streaming vs. Non-Streaming)
+
+Every function branches on the `stream` parameter immediately after the API call.
+
+**Streaming path:** The function iterates over chunks from the response generator, accumulating text (and reasoning tokens, where applicable) into a list. If `verbose=True`, each chunk is printed to the console as it arrives using `flush=True` to ensure immediate output. Once the stream is exhausted, the collected fragments are joined and returned. Token usage and cost estimates are generally not available in streaming mode, so the returned dictionary contains only `text` (and `reasoning`, where applicable) along with the raw `response` object.
+
+**Non-streaming path:** The function extracts the complete response text from the response object, then proceeds to token extraction and cost computation.
+
+### 7. Token Extraction and Cost Computation
+
+In the non-streaming path, the function reads token counts from the response's `usage` object. The exact field names vary by provider (e.g., `input_tokens` vs. `prompt_tokens`, `cached_tokens` vs. `prompt_cache_hit_tokens`), but each function maps these to a consistent set of local variables. Where the provider reports cache hit/miss breakdowns, these are extracted via `getattr` with a fallback of `0` to guard against missing fields.
+
+The estimated cost is then computed as a weighted sum of the token counts and the per-token rates from `MODEL_CONFIG`:
+
+```
+cost = (cache_miss_tokens * cost_per_input_token)
+     + (cached_tokens * cost_per_cached_token)
+     + (output_tokens * cost_per_output_token)
+```
+
+Some providers add additional cost components. Perplexity includes a per-request fee that varies with `search_context_size`, and its `sonar-deep-research` model adds charges for citation tokens, search queries, and reasoning tokens. Grok charges reasoning tokens at the output token rate. These are folded into the same `cost` variable.
+
+### 8. Verbose Output
+
+If `verbose=True` (the default), the function prints the response text, token usage breakdown, and estimated cost to the console. For models that produce chain-of-thought reasoning (DeepSeek, Kimi), the reasoning trace is printed separately under a `--- Reasoning ---` header before the final answer. Perplexity additionally prints the list of citation URLs.
+
+### 9. Return Dictionary
+
+Finally, the function returns a dictionary containing the response text, all token counts, the cost estimate, and the raw response object. The raw response is included to allow advanced users to access provider-specific fields not surfaced by the wrapper (e.g., finish reason, logprobs, or tool call results). The keys are not perfectly identical across providers due to differences in their APIs, but the structure is consistent enough that switching between wrappers requires only minor key name adjustments.
+
 ## License
 
 Creative Commons Zero v1.0 Universal
